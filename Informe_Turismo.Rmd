@@ -1,0 +1,112 @@
+---
+title: "Informe de Turismo"
+author: Micaela Chouza
+date: 2024-05-06
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+
+
+# El siguiente código lee los datos desde una url
+turistas <- readr::read_csv("https://catalogodatos.gub.uy/dataset/1c1d75d0-b3c9-4ea4-a519-8c6b1468e589/resource/922f23e1-296c-490a-a3df-61e03e122d17/download/emisivo.csv") |> 
+  janitor::clean_names() # "arregla" los nombres de columnas
+```
+
+La base datos desagregados obtenidos en la Encuesta de turismo Emisivo sobre el flujo de los residentes de Uruguay que viajan fuera del país y el gasto de los mismos según destino principal del viaje entre diciembre de 2016 y marzo de 2024. Esta base de datos se encuentra disponible en el [Catálogo de datos abiertos](https://catalogodatos.gub.uy/dataset/1c1d75d0-b3c9-4ea4-a519-8c6b1468e589/resource/922f23e1-296c-490a-a3df-61e03e122d17#)  de Uruguay.
+
+
+**Pregunta:** ¿Existe una relación entre los gastos totales del viaje con el nivel de estudio del encuestado? Se mantiene esa relación (si existe) cuando tenemos en cuenta el destino al que viajan?
+
+
+### Introducción 
+
+*En el presente informe se realiza un análisis que ayudará a la comprensión de la actividad turística de los uruguayos. El conjunto de datos utilizado es generado por la Oficina de Investigación y Estadísticas Turísticas - MINTUR en Uruguay y cuenta con información de los residentes de Uruguay que viajan fuera del país y el gasto de los mismos según destino principal del viaje.
+En esta primera parte nos concentramos en encontrar, si la hubiera, alguna relación entre el nivel de estudios de los viajeros y el total de sus gastos. También nos dedicaremos a relacionar estas variables con el destino turístico.*
+
+### Enfoque
+
+*Para comenzar nuestro análisis realizamos la tabla de frecuencias de la variable "estudio", al hacerlo notamos que la cantidad de observaciones para cada categoría varía mucho así que concluimos que para crear las siguientes visualizaciones utilizaremos la media de cada categoría en lugar de mostrar todos los puntos individuales. Por lo tanto, ambos gráficos describen la relación entre las medias de cada categoría esto ofrece mayor confiabilidad estadística, facilita la comparación entre nivel de estudio y destino y las visualizaciones lucen más simples y legibles.
+El tipo de gráfico elegido es el de barras para el primer análisis ya que son intuitivos y fáciles de interpretar para la mayoría de las personas, demuestra de forma clara y simple la relación  entre el gasto total promedio por turista y el nivel de estudios mediante la altura de las barras.En el caso de la segunda visualización elegimos un gráfico de puntos mapeado en distintos paneles según el destino para facilitar la comparación según esta última variable, seguimos usando la media para facilitar la lectura y comparación de los datos*
+
+### Análisis
+
+```{r}
+# Filtramos los datos para eliminar los valores nulos y la categoría "otro" de la variable "estudio"
+turistas_filtrados <- turistas %>%
+  filter(!is.na(estudio) & estudio != "Otros" & estudio != "Sin Datos")
+
+# Calculamos la frecuencia de cada categoría en la variable "estudio"
+frecuencia_estudio <- table(turistas$estudio)
+
+# Imprimimos la frecuencia de cada categoría
+print(frecuencia_estudio)
+
+# Graficamos relacionando gasto promedio con nivel de estudios, usamos la geometría col y agregamos etiquetas
+# Como utilizamos medidas estadisticas en vez de datos individuales utilizamos 'stat_summary' que calcula la media de 'gasto_total' para cada 'estudio'
+ggplot(data = turistas_filtrados, 
+       aes(x = fct_relevel(estudio, "Primaria incompleta", "Primaria completa", "Secundaria incompleta", "Secundaria completa", "Terciaria incompleta", "Terciaria completa"), y = gasto_total)) +
+  stat_summary(fun = "mean", geom = "col", position = "stack") +
+  labs(x = "Nivel de estudios", y = "Gasto promedio por turista", title = "Gasto promedio por nivel de estudios") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+```
+```{r}
+ggplot(data = turistas_filtrados, 
+       aes(x = fct_relevel(estudio, "Primaria incompleta", "Primaria completa", "Secundaria incompleta", "Secundaria completa", "Terciaria incompleta", "Terciaria completa"), y = gasto_total)) +
+  stat_summary(fun = "mean", geom = "point") +
+  labs(x = "Nivel de estudios", y = "Gasto promedio por turista", title = "Gasto promedio por nivel de estudio") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  facet_wrap(~fct_relevel(destino, "Africa", "Argentina", "Asia del Este y Pacifico", "Asia Meridional", "Brasil", "Centro y Norte America", "Chile", "Europa", "Oriente Medio", "Paraguay", "Resto Sud America", "Otros"))
+
+```
+
+### Conclusiones
+
+*Observando el primer gráfico notamos una relación que indica que a mayor nivel de estudios mayor el gasto durante el viaje. Especulando sobre el por qué de esta tendencia podríamos concluir que un mayor nivel académico conlleva un empleo mejor pago y, a su vez, un mayor nivel adquisitivo; entonces a mayor ingresos mayor es el gasto durante las vacaciones. 
+Ahora si analizamos el segundo gráfico que separa la información según el lugar de destino notamos que hay excepciones. En Argentina el nivel de estudios no parece influir en el total de los gastos y esa tendencia se mantiene cuando el lugar de destino es en el continente americano. La tendencia de mayor estudio - mayor gasto se vuelve a observar cuando nos enfocamos en destinos como "Europa", "Oriente Medio" y "Asia del Este y Pacífico"*
+
+**Pregunta:** *¿Existe una relación entre el motivos del viaje con el nivel de estudio del encuestado? Se mantiene esa relación (si existe) cuando tenemos en cuenta el destino al que viajan?
+*
+
+### Introducción 
+
+*La pregunta inicial nos lleva a analizar dos variables categóricas de nuestra base de datos, la primera, “estudio” ya la hemos utilizado y nos describe el nivel académico de los encuestados; la segunda,  “motivo” explica la razón del viaje. Intentaremos encontrar la relación entre estas variables y luego analizaremos si esta relación se mantiene cuando estudiamos cada destino turístico por separado.*
+
+### Enfoque
+
+*Para este análisis optamos por utilizar un gráfico de barras apilado para relacionar las dos variables categóricas que menciona la pregunta inicial: “estudio” y “motivo”. En la segunda visualización utilizamos facetas para comparar los resultados de la misma gráfica pero según el país de destino. Elegimos los gráficos de barras apilados por su simpleza y claridad a la hora de visualizar variables categóricas.*
+
+### Análisis
+
+```{r}
+# Creamos un grafico de barras apilado para mostrar la relacion entre la varaible 'estudio' y 'motivo'
+# Nuevamente utilizamos la funcion forcats para ordenar las categorias de la varaible 'estudio' y que sea mas clara su lectura
+ggplot(data = turistas_filtrados, aes(x = fct_relevel(estudio, "Primaria incompleta", "Primaria completa", "Secundaria incompleta", "Secundaria completa", "Terciaria incompleta", "Terciaria completa"), fill = motivo)) +
+  geom_bar(position = "stack") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "Nivel de estudios", y = "Turistas", title = "Motivo del viaje segun en nivel de estudios") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+```{r}
+# Repetimos el grafico para no perder la relacion que observamos en el anterior pero ahora lo mapeamos facetado asi comparamos como cambia esta relacion segun la variable 'destino'
+# Volvemos a utilizar la funcion de forcats para reordenar las categorias de la variable 'destino' para que la categoria 'otros' quede ultimo
+ggplot(data = turistas_filtrados, aes(x = fct_relevel(estudio, "Primaria incompleta", "Primaria completa", "Secundaria incompleta", "Secundaria completa", "Terciaria incompleta", "Terciaria completa"), fill = motivo)) +
+  geom_bar(position = "stack") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "Nivel de estudios", y = "Turistas", title = "Motivo del viaje segun en nivel de estudios") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  facet_wrap(~fct_relevel(destino, "Africa", "Argentina", "Asia del Este y Pacifico", "Asia Meridional", "Brasil", "Centro y Norte America", "Chile", "Europa", "Oriente Medio", "Paraguay", "Resto Sud America", "Otros"))
+
+```
+
+
+### Conclusiones
+
+*Gracias a la primera visualización, el gráfico de barras apilado, podemos observar varias relaciones. Una de ellas es que los únicos encuestados que realizan viajes de trabajo son aquellos que al menos tienen el secundario completo. Otra observación que podemos realizar es que aquellos que no estudiaron el secundario prácticamente solo viajan para visitar familiares y amigos, no por trabajo ni recreación. 
+Cuando analizamos en segundo gráfico podemos sacar otras conclusiones, como que a Europa y Centro y Norte América los encuestados viajan, en su mayoría, a vacacionar. Mientras que si analizamos el motivo trabajo se concentra en países como Argentina y Brasil, seguramente por la proximidad y facilidades idiomáticas. Siguiendo con la última observación aquellos encuestados que viajaron por trabajo a Brasil eran, en gran medida, profesionales con título terciario; mientras que a Argentina fueron también trabajadores sin terciario o con terciario incompleto, pero la predominancia del terciario completo se mantiene.	
+*
